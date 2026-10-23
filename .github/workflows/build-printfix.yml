@@ -81,7 +81,7 @@ jobs:
 
       - name: Build otvdm.sln (Release|Win32)
         shell: cmd
-        run: msbuild otvdm.sln /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=${{ steps.sdk.outputs.version }} /m /v:normal
+        run: msbuild otvdm.sln /t:gdi /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=${{ steps.sdk.outputs.version }} /m /v:normal
 
       - name: Upload build output
         if: always()
