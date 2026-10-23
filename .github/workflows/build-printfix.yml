@@ -17,11 +17,12 @@ jobs:
           msystem: MSYS
           install: base-devel
           update: false
-          location: C:\
 
       - name: Sanity-check assembler
         shell: pwsh
-        run: C:\msys64\usr\bin\as.exe --version
+        run: |
+          Get-ChildItem C:\msys64\usr\bin\as*.exe,C:\msys64\usr\bin\objcopy*.exe -ErrorAction SilentlyContinue
+          & "C:\msys64\usr\bin\as.exe" --version
 
       - name: Detect installed Windows 10 SDK version
         id: sdk
