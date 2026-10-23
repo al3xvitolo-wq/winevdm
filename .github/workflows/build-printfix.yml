@@ -76,33 +76,12 @@ jobs:
           "@
           Set-Content -Path PropertySheet.props -Value $content -Encoding utf8
 
-      - name: Install VS2017 (v141) build tools component
-        shell: pwsh
-        run: |
-          $installPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
-          $vsInstaller = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-          $logFile = "$env:RUNNER_TEMP\vs_installer.log"
-          $p = Start-Process -FilePath $vsInstaller -ArgumentList @(
-            "modify",
-            "--installPath", "`"$installPath`"",
-            "--add", "Microsoft.VisualStudio.Component.VC.v141.x86.x64",
-            "--quiet", "--norestart",
-            "--log", "`"$logFile`""
-          ) -Wait -NoNewWindow -PassThru
-          Write-Host "vs_installer exit code: $($p.ExitCode)"
-          if (Test-Path $logFile) { Get-Content $logFile -Tail 300 } else { Write-Host "No log file at $logFile" }
-          # Verify the toolset is actually there now
-          $msvcDir = Join-Path $installPath "VC\Tools\MSVC"
-          if (Test-Path $msvcDir) { Get-ChildItem $msvcDir }
-          $v141Dir = "C:\Program Files (x86)\Microsoft Visual Studio\2017"
-          if (Test-Path $v141Dir) { Write-Host "v141 install found under $v141Dir" } else { Write-Host "No separate VS2017 install tree found" }
-
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
       - name: Build otvdm.sln (Release|Win32)
         shell: cmd
-        run: msbuild otvdm.sln /p:Configuration=Release /p:Platform=Win32 /p:WindowsTargetPlatformVersion=${{ steps.sdk.outputs.version }} /m /v:normal
+        run: msbuild otvdm.sln /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=${{ steps.sdk.outputs.version }} /m /v:normal
 
       - name: Upload build output
         if: always()
