@@ -76,6 +76,18 @@ jobs:
           "@
           Set-Content -Path PropertySheet.props -Value $content -Encoding utf8
 
+      - name: Install VS2017 (v141) build tools component
+        shell: pwsh
+        run: |
+          $installPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          $vsInstaller = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          Start-Process -FilePath $vsInstaller -ArgumentList @(
+            "modify",
+            "--installPath", $installPath,
+            "--add", "Microsoft.VisualStudio.Component.VC.v141.x86.x64",
+            "--quiet", "--norestart", "--wait"
+          ) -Wait -NoNewWindow
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
