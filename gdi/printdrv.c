@@ -377,6 +377,41 @@ static int FreePrintJob(HANDLE16 hJob)
     }
     return nRet;
 }
+
+/* NT lists printers on non-LPT/COM ports in WIN.INI [devices] as
+ * "winspool,NeXX:" pseudo-ports, and 16-bit apps pass that port to OpenJob.
+ * Map it back to the printer name, as native WOW does. */
+static BOOL FindPrinterByPort(LPCSTR port, LPSTR name, DWORD size)
+{
+    HKEY hkey;
+    DWORD index = 0;
+    BOOL found = FALSE;
+
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows NT\\CurrentVersion\\Devices",
+                      0, KEY_READ, &hkey))
+        return FALSE;
+    while (!found)
+    {
+        char value[256];
+        char *p, *end;
+        DWORD nameLen = size, valueLen = sizeof(value) - 1, type;
+
+        if (RegEnumValueA(hkey, index++, name, &nameLen, NULL, &type, (LPBYTE)value, &valueLen))
+            break;
+        if (type != REG_SZ)
+            continue;
+        value[valueLen] = '\0';
+        p = strchr(value, ',');
+        if (!p)
+            continue;
+        p++;
+        if ((end = strchr(p, ',')))
+            *end = '\0';
+        found = !lstrcmpiA(p, port);
+    }
+    RegCloseKey(hkey);
+    return found;
+}
 #endif
 
 /**********************************************************************
@@ -432,6 +467,7 @@ HPJOB16 WINAPI OpenJob16(LPCSTR lpOutput, LPCSTR lpTitle, HDC16 hDC)
     HANDLE hPrinter = NULL;
     HANDLE hFile = INVALID_HANDLE_VALUE;
     BOOL isPrinter = FALSE;
+    char printerName[256];
 
     TRACE("'%s' '%s' %04x\n", lpOutput, lpTitle, hDC);
 
@@ -441,11 +477,18 @@ HPJOB16 WINAPI OpenJob16(LPCSTR lpOutput, LPCSTR lpTitle, HDC16 hDC)
     if (gPrintJobsTable[0] != NULL)
         return hHandle;
 
-    /* lpOutput is normally a Windows printer name (as chosen in Print Setup).
-     * Try opening it as a real printer and starting a RAW print job on it;
-     * if that fails, fall back to treating it as a plain output file path
-     * (this preserves the existing "print to file" behaviour). */
-    if (OpenPrinterA((LPSTR)lpOutput, &hPrinter, NULL))
+    /* lpOutput is a printer name or its "NeXX:" port; otherwise treat it as a file path. */
+    if (!OpenPrinterA((LPSTR)lpOutput, &hPrinter, NULL))
+    {
+        hPrinter = NULL;
+        if (FindPrinterByPort(lpOutput, printerName, sizeof(printerName)))
+        {
+            TRACE("port '%s' -> printer '%s'\n", lpOutput, printerName);
+            if (!OpenPrinterA(printerName, &hPrinter, NULL))
+                hPrinter = NULL;
+        }
+    }
+    if (hPrinter)
     {
         DOC_INFO_1A docInfo;
         docInfo.pDocName = (LPSTR)(lpTitle && *lpTitle ? lpTitle : "otvdm print job");
