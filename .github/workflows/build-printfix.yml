@@ -17,6 +17,7 @@ jobs:
           msystem: MSYS
           install: base-devel
           update: false
+          location: C:\
 
       - name: Sanity-check assembler
         shell: pwsh
