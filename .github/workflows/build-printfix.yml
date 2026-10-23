@@ -34,7 +34,9 @@ jobs:
         id: sdk
         shell: pwsh
         run: |
-          $versions = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Directory | Sort-Object Name -Descending
+          $versions = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object { [version]$_.Name } -Descending
           $ver = $versions[0].Name
           Write-Host "Using SDK $ver"
           echo "version=$ver" >> $env:GITHUB_OUTPUT
