@@ -1,0 +1,82 @@
+name: build-printfix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ printfix ]
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSYS2 (provides as.exe/objcopy.exe used by the 16-bit thunk generator)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MSYS
+          install: base-devel
+          update: false
+
+      - name: Sanity-check assembler
+        shell: pwsh
+        run: C:\msys64\usr\bin\as.exe --version
+
+      - name: Detect installed Windows 10 SDK version
+        id: sdk
+        shell: pwsh
+        run: |
+          $versions = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" -Directory | Sort-Object Name -Descending
+          $ver = $versions[0].Name
+          Write-Host "Using SDK $ver"
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Write PropertySheet.props (build-time only, not committed)
+        shell: pwsh
+        run: |
+          $sdk = "${{ steps.sdk.outputs.version }}"
+          $content = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+            <ImportGroup Label="PropertySheets" />
+            <PropertyGroup Label="UserMacros">
+              <AsmPath>C:\msys64\usr\bin\</AsmPath>
+              <NtDllLibPath>`$(UniversalCRTSdkDir)Lib\$sdk\um\x86\</NtDllLibPath>
+            </PropertyGroup>
+            <PropertyGroup>
+              <_PropertySheetDisplayName>MacroPropertySheet</_PropertySheetDisplayName>
+              <IncludePath>`$(SolutionDir)wow32;`$(IncludePath)</IncludePath>
+            </PropertyGroup>
+            <ItemDefinitionGroup>
+              <ClCompile>
+                <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+                <WarningLevel>TurnOffAllWarnings</WarningLevel>
+              </ClCompile>
+            </ItemDefinitionGroup>
+            <ItemGroup>
+              <BuildMacro Include="AsmPath">
+                <Value>`$(AsmPath)</Value>
+              </BuildMacro>
+              <BuildMacro Include="NtDllLibPath">
+                <Value>`$(NtDllLibPath)</Value>
+              </BuildMacro>
+            </ItemGroup>
+          </Project>
+          "@
+          Set-Content -Path PropertySheet.props -Value $content -Encoding utf8
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build otvdm.sln (Release|Win32)
+        shell: cmd
+        run: msbuild otvdm.sln /p:Configuration=Release /p:Platform=Win32 /p:WindowsTargetPlatformVersion=${{ steps.sdk.outputs.version }} /m /v:normal
+
+      - name: Upload build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: otvdm-build-output
+          path: |
+            Release/**
+          if-no-files-found: warn
