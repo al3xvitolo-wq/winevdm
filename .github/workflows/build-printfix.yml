@@ -18,11 +18,17 @@ jobs:
           install: binutils
           update: true
 
-      - name: Sanity-check assembler
-        shell: pwsh
+      - name: Locate MSYS2 root and sanity-check assembler
+        id: msys2root
+        shell: msys2 {0}
         run: |
-          Get-ChildItem C:\msys64\usr\bin\as*.exe,C:\msys64\usr\bin\objcopy*.exe -ErrorAction SilentlyContinue
-          & "C:\msys64\usr\bin\as.exe" --version
+          which as
+          which objcopy
+          as --version
+          root=$(cygpath -w /usr/bin)
+          echo "Resolved Windows path: $root"
+          ghout=$(cygpath -u "$GITHUB_OUTPUT")
+          echo "bindir=$root" >> "$ghout"
 
       - name: Detect installed Windows 10 SDK version
         id: sdk
@@ -37,12 +43,13 @@ jobs:
         shell: pwsh
         run: |
           $sdk = "${{ steps.sdk.outputs.version }}"
+          $asmPath = "${{ steps.msys2root.outputs.bindir }}\"
           $content = @"
           <?xml version="1.0" encoding="utf-8"?>
           <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
             <ImportGroup Label="PropertySheets" />
             <PropertyGroup Label="UserMacros">
-              <AsmPath>C:\msys64\usr\bin\</AsmPath>
+              <AsmPath>$asmPath</AsmPath>
               <NtDllLibPath>`$(UniversalCRTSdkDir)Lib\$sdk\um\x86\</NtDllLibPath>
             </PropertyGroup>
             <PropertyGroup>
