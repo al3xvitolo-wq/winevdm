@@ -84,13 +84,13 @@ jobs:
           $logFile = "$env:RUNNER_TEMP\vs_installer.log"
           $p = Start-Process -FilePath $vsInstaller -ArgumentList @(
             "modify",
-            "--installPath", $installPath,
+            "--installPath", "`"$installPath`"",
             "--add", "Microsoft.VisualStudio.Component.VC.v141.x86.x64",
-            "--quiet", "--norestart", "--wait",
-            "--log", $logFile
+            "--quiet", "--norestart",
+            "--log", "`"$logFile`""
           ) -Wait -NoNewWindow -PassThru
           Write-Host "vs_installer exit code: $($p.ExitCode)"
-          if (Test-Path $logFile) { Get-Content $logFile -Tail 200 }
+          if (Test-Path $logFile) { Get-Content $logFile -Tail 300 } else { Write-Host "No log file at $logFile" }
           # Verify the toolset is actually there now
           $msvcDir = Join-Path $installPath "VC\Tools\MSVC"
           if (Test-Path $msvcDir) { Get-ChildItem $msvcDir }
