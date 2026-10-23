@@ -15,7 +15,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MSYS
-          install: binutils
+          install: binutils flex bison
           update: true
 
       - name: Locate MSYS2 root and sanity-check assembler
